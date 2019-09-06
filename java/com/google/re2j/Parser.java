@@ -12,9 +12,7 @@
 package com.google.re2j;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,6 +39,7 @@ class Parser {
       "missing argument to repetition operator";
   private static final String ERR_TRAILING_BACKSLASH = "trailing backslash at end of expression";
   private static final String ERR_DUPLICATE_NAMED_CAPTURE = "duplicate capture group name";
+  private static final String ERR_INVALID_MARK = "invalid mark number";
 
   // Hack to expose ArrayList.removeRange().
   private static class Stack extends ArrayList<Regexp> {
@@ -161,6 +160,10 @@ class Parser {
     if (re1.op != Regexp.Op.LITERAL
         || re2.op != Regexp.Op.LITERAL
         || (re1.flags & RE2.FOLD_CASE) != (re2.flags & RE2.FOLD_CASE)) {
+      return false;
+    }
+
+    if (re2.mark != re1.mark) {
       return false;
     }
 
@@ -451,11 +454,13 @@ class Parser {
         prefix.flags = strflags;
         prefix.runes = Utils.subarray(str, 0, strlen);
 
+        //TODO: handle the foo2, foo3, foo4 being collapsed here
         for (int j = start; j < i; j++) {
           array[s + j] = removeLeadingString(array[s + j], strlen);
         }
         // Recurse.
         Regexp suffix = collapse(subarray(array, s + start, s + i), Regexp.Op.ALTERNATE);
+
         Regexp re = newRegexp(Regexp.Op.CONCAT);
         re.subs = new Regexp[] {prefix, suffix};
         array[lenout++] = re;
@@ -1072,7 +1077,25 @@ class Parser {
       }
       re.name = name;
       return;
+    } else if (s.startsWith(Constants.MARK_PREFIX)) {
+
+      // Pull out mark number.
+      int end = s.indexOf(Constants.MARK_SUFFIX);
+      if (end < 0) {
+        throw new PatternSyntaxException(ERR_INVALID_MARK, s);
+      }
+      String mark = s.substring(Constants.MARK_PREFIX.length(), end);
+      Regexp re = op(Regexp.Op.LEFT_PAREN);
+      try {
+        re.mark = Integer.parseInt(mark);
+      } catch (NumberFormatException e) {
+        throw new PatternSyntaxException(ERR_INVALID_MARK, s);
+      }
+      t.skipString(mark);
+      t.skip(Constants.MARK_PREFIX.length() + 1);
+      return;
     }
+
 
     // Non-capturing group.  Might also twiddle Perl flags.
     t.skip(2); // "(?"
@@ -1315,6 +1338,7 @@ class Parser {
     // Restore flags at time of paren.
     this.flags = re2.flags;
     if (re2.cap == 0) {
+      re1.mark = re2.mark;
       // Just for grouping.
       push(re1);
     } else {

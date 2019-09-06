@@ -57,6 +57,7 @@ class Regexp {
   int min, max; // min, max for REPEAT
   int cap; // capturing index, for CAPTURE
   String name; // capturing name, for CAPTURE
+  int mark = 0; // mark
   Map<String, Integer> namedGroups; // map of group name -> capturing index
   // Do update copy ctor when adding new fields!
 
@@ -74,6 +75,7 @@ class Regexp {
     this.max = that.max;
     this.cap = that.cap;
     this.name = that.name;
+    this.mark = that.mark;
     this.namedGroups = that.namedGroups;
   }
 
@@ -186,12 +188,16 @@ class Regexp {
         out.append("(?s:.)");
         break;
       case CAPTURE:
-        if (name == null || name.isEmpty()) {
-          out.append('(');
-        } else {
+        if (name != null && !name.isEmpty()) {
           out.append("(?P<");
           out.append(name);
           out.append(">");
+        } else if (mark != 0) {
+          out.append(Constants.MARK_PREFIX);
+          out.append(mark);
+          out.append(Constants.MARK_SUFFIX);
+        } else {
+          out.append('(');
         }
         if (subs[0].op != Op.EMPTY_MATCH) {
           subs[0].appendTo(out);
@@ -262,6 +268,15 @@ class Regexp {
         out.append(op);
         break;
     }
+    if (mark > 0) {
+      out.append(",addMark(");
+      out.append(mark);
+      out.append(")");
+    } else if (mark < 0) {
+      out.append(",removeMark(");
+      out.append(mark);
+      out.append(")");
+    }
   }
 
   // maxCap() walks the regexp to find the maximum capture index.
@@ -305,7 +320,7 @@ class Regexp {
         hashcode += 31 * min + 31 * max + 31 * subs[0].hashCode();
         break;
       case CAPTURE:
-        hashcode += 31 * cap + 31 * (name != null ? name.hashCode() : 0) + 31 * subs[0].hashCode();
+        hashcode += 31 * cap + 31 * (name != null ? name.hashCode() : 0) + 31 * mark + 31 * subs[0].hashCode();
         break;
     }
     return hashcode;
@@ -365,6 +380,7 @@ class Regexp {
       case CAPTURE:
         if (x.cap != y.cap
             || (x.name == null ? y.name != null : !x.name.equals(y.name))
+            || (x.mark != y.mark)
             || !x.subs[0].equals(y.subs[0])) {
           return false;
         }

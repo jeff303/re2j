@@ -25,6 +25,7 @@ final class Inst {
   public static final int RUNE1 = 9;
   public static final int RUNE_ANY = 10;
   public static final int RUNE_ANY_NOT_NL = 11;
+  public static final int MARK = 12;
 
   int op;
   int out; // all but MATCH, FAIL
@@ -120,6 +121,8 @@ final class Inst {
         return "any -> " + out;
       case RUNE_ANY_NOT_NL:
         return "anynotnl -> " + out;
+      case MARK:
+        return "mark -> " + arg + " -> " + out;
       default:
         throw new IllegalStateException("unhandled case in Inst.toString");
     }

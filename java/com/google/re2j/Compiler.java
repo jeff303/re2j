@@ -57,6 +57,20 @@ class Compiler {
     return new Frag(prog.numInst() - 1);
   }
 
+  private Frag maybeMark(Frag frag, int markNumber) {
+    if (markNumber != 0) {
+      Inst inst = prog.getInst(frag.i);
+      Inst outInst = prog.getInst(inst.out);
+      if (outInst.op == Inst.MARK && outInst.arg == markNumber) {
+        return frag;
+      }
+
+      Frag mark = mark(markNumber);
+      return cat(frag, mark);
+    }
+    return frag;
+  }
+
   // Returns a no-op fragment.  Sometimes unavoidable.
   private Frag nop() {
     Frag f = newInst(Inst.NOP);
@@ -155,6 +169,14 @@ class Compiler {
     return rune(new int[] {rune}, flags);
   }
 
+  private Frag mark(int markNum) {
+    Frag f = newInst(Inst.MARK);
+    f.out = f.i << 1;
+    Inst i = prog.getInst(f.i);
+    i.arg = markNum;
+    return f;
+  }
+
   // flags : parser flags
   private Frag rune(int[] runes, int flags) {
     Frag f = newInst(Inst.RUNE);
@@ -190,24 +212,24 @@ class Compiler {
       case NO_MATCH:
         return fail();
       case EMPTY_MATCH:
-        return nop();
+        return maybeMark(nop(), re.mark);
       case LITERAL:
         if (re.runes.length == 0) {
-          return nop();
+          return maybeMark(nop(), re.mark);
         } else {
           Frag f = null;
           for (int r : re.runes) {
             Frag f1 = rune(r, re.flags);
             f = (f == null) ? f1 : cat(f, f1);
           }
-          return f;
+          return maybeMark(f, re.mark);
         }
       case CHAR_CLASS:
-        return rune(re.runes, re.flags);
+        return maybeMark(rune(re.runes, re.flags), re.mark);
       case ANY_CHAR_NOT_NL:
-        return rune(ANY_RUNE_NOT_NL, 0);
+        return maybeMark(rune(ANY_RUNE_NOT_NL, 0), re.mark);
       case ANY_CHAR:
-        return rune(ANY_RUNE, 0);
+        return maybeMark(rune(ANY_RUNE, 0), re.mark);
       case BEGIN_LINE:
         return empty(Utils.EMPTY_BEGIN_LINE);
       case END_LINE:
@@ -223,21 +245,21 @@ class Compiler {
       case CAPTURE:
         {
           Frag bra = cap(re.cap << 1), sub = compile(re.subs[0]), ket = cap(re.cap << 1 | 1);
-          return cat(cat(bra, sub), ket);
+          return maybeMark(cat(cat(bra, sub), ket), re.mark);
         }
       case STAR:
-        return star(compile(re.subs[0]), (re.flags & RE2.NON_GREEDY) != 0);
+        return maybeMark(star(compile(re.subs[0]), (re.flags & RE2.NON_GREEDY) != 0), re.mark);
       case PLUS:
-        return plus(compile(re.subs[0]), (re.flags & RE2.NON_GREEDY) != 0);
+        return maybeMark(plus(compile(re.subs[0]), (re.flags & RE2.NON_GREEDY) != 0), re.mark);
       case QUEST:
-        return quest(compile(re.subs[0]), (re.flags & RE2.NON_GREEDY) != 0);
+        return maybeMark(quest(compile(re.subs[0]), (re.flags & RE2.NON_GREEDY) != 0), re.mark);
       case CONCAT:
         if (re.subs.length == 0) {
-          return nop();
+          return maybeMark(nop(), re.mark);
         } else {
           Frag f = null;
           for (Regexp sub : re.subs) {
-            Frag f1 = compile(sub);
+            Frag f1 = maybeMark(compile(sub), sub.mark);
             f = (f == null) ? f1 : cat(f, f1);
           }
           return f;
@@ -245,11 +267,11 @@ class Compiler {
       case ALTERNATE:
         {
           if (re.subs.length == 0) {
-            return nop();
+            return maybeMark(nop(), re.mark);
           } else {
             Frag f = null;
             for (Regexp sub : re.subs) {
-              Frag f1 = compile(sub);
+              Frag f1 = maybeMark(compile(sub), sub.mark);
               f = (f == null) ? f1 : alt(f, f1);
             }
             return f;

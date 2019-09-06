@@ -22,6 +22,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -112,6 +113,8 @@ class RE2 {
   byte[] prefixUTF8; // required UTF-8 prefix in unanchored matches
   boolean prefixComplete; // true iff prefix is the entire regexp
   int prefixRune; // first rune in prefix
+
+  BitSet marks;
 
   // Cache of machines for running regexp.
   // Accesses must be serialized using |this| monitor.

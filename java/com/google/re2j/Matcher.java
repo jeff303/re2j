@@ -2,6 +2,7 @@
 
 package com.google.re2j;
 
+import java.util.BitSet;
 import java.util.Map;
 
 /**
@@ -40,6 +41,8 @@ public final class Matcher {
   private final int[] groups;
 
   private final Map<String, Integer> namedGroups;
+
+  private final BitSet marks = new BitSet();
 
   // The number of submatches (groups) in the pattern.
   private final int groupCount;
@@ -223,6 +226,10 @@ public final class Matcher {
     return group(g);
   }
 
+  public boolean hasGroup(String group) {
+    return namedGroups.containsKey(group);
+  }
+
   /**
    * Returns the number of subgroups in this pattern.
    *
@@ -324,7 +331,8 @@ public final class Matcher {
   private boolean genMatch(int startByte, int anchor) {
     // TODO(rsc): Is matches/lookingAt supposed to reset the append or input positions?
     // From the JDK docs, looks like no.
-    boolean ok = pattern.re2().match(inputSequence, startByte, inputLength, anchor, groups, 1);
+    final RE2 re2 = pattern.re2();
+    boolean ok = re2.match(inputSequence, startByte, inputLength, anchor, groups, 1);
     if (!ok) {
       return false;
     }
@@ -333,6 +341,10 @@ public final class Matcher {
     anchorFlag = anchor;
 
     return true;
+  }
+
+  public BitSet getMarks() {
+    return pattern.re2().marks;
   }
 
   /** Helper: return substring for [start, end). */

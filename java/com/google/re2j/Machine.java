@@ -8,6 +8,7 @@
 package com.google.re2j;
 
 import java.util.Arrays;
+import java.util.BitSet;
 
 // A Machine matches an input string of Unicode characters against an
 // RE2 instance using a simple NFA.
@@ -187,6 +188,13 @@ class Machine {
     poolSize++;
   }
 
+  private BitSet getMarksSet() {
+    if (re2.marks == null) {
+      re2.marks = new BitSet();
+    }
+    return re2.marks;
+  }
+
   // match() runs the machine over the input |in| starting at |pos| with the
   // RE2 Anchor |anchor|.
   // It reports whether a match was found.
@@ -339,6 +347,16 @@ class Machine {
           add = c != '\n';
           break;
 
+        case Inst.MARK:
+          int marker = i.arg;
+          if (marker > 0) {
+            getMarksSet().set(marker);
+          } else {
+            getMarksSet().clear(-marker);
+          }
+          add = true;
+          break;
+
         default:
           throw new IllegalStateException("bad inst");
       }
@@ -401,6 +419,15 @@ class Machine {
         }
         break;
 
+      case Inst.MARK:
+        if (t == null) {
+          t = alloc(inst);
+        } else {
+          t.inst = inst;
+        }
+        q.denseThreads[d] = t;
+        t = add(q, inst.out, pos, cap, cond, null);
+        break;
       case Inst.MATCH:
       case Inst.RUNE:
       case Inst.RUNE1:

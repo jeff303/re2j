@@ -274,6 +274,9 @@ public class ParserTest {
     {"(?:xx|yy)c|(?:xx|yy)d", "cat{alt{str{xx}str{yy}}cc{0x63-0x64}}"},
     {"x{2}|x{2}[0-9]", "cat{rep{2,2 lit{x}}alt{emp{}cc{0x30-0x39}}}"},
     {"x{2}y|x{2}[0-9]y", "cat{rep{2,2 lit{x}}alt{lit{y}cat{cc{0x30-0x39}lit{y}}}}"},
+
+    // mark tests
+    {"(?M<123>a)", "lit{a,addMark(123)}"},
   };
 
   // TODO(adonovan): add some tests for:
@@ -446,6 +449,15 @@ public class ParserTest {
           break;
         }
     }
+    if (re.mark > 0) {
+      b.append(",addMark(");
+      b.append(re.mark);
+      b.append(")");
+    } else if (re.mark < 0) {
+      b.append(",removeMark(");
+      b.append(re.mark);
+      b.append(")");
+    }
     b.append('}');
   }
 
@@ -530,6 +542,10 @@ public class ParserTest {
     "a{100000,}",
     // Group names may not be repeated
     "(?P<foo>bar)(?P<foo>baz)",
+    // marks have to be closed properly
+    "(?M<123)",
+    // and have to be numbers
+    "(?M<foo>)",
   };
 
   private static final String[] ONLY_PERL = {
